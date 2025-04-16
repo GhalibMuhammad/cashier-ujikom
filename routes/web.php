@@ -1,10 +1,13 @@
 <?php
 
-use Illuminate\Support\Facades\Route;
-use App\Http\Controllers\LoginController;
-use App\Http\Controllers\PageController;
+use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\ProductController;
-use App\Http\Controllers\SaleController;
+use App\Http\Controllers\UserController;
+use App\Http\Controllers\AuthController;
+use App\Http\Controllers\SalessController;
+use App\Http\Controllers\DetailSalesController;
+use Illuminate\Support\Facades\Route;
+use App\Http\Middleware\RoleMiddleware;
 
 
 /*
@@ -18,79 +21,85 @@ use App\Http\Controllers\SaleController;
 |
 */
 
-Route::middleware(['isLogin', 'cekRole:admin'])->group(function () {
-    Route::prefix('/dashboard')->group(function () {
-    Route::prefix('/user')->name('user.')->group(function () {
-        Route::get('/', [LoginController::class, 'index'])->name('index');
-        Route::get('/create', [LoginController::class, 'create'])->name('create');
-        Route::post('/create-post', [LoginController::class, 'store'])->name('store');
-        Route::get('/edit/{id}', [LoginController::class, 'edit'])->name('edit');
-        Route::patch('/edit-post/{id}', [LoginController::class, 'update'])->name('update');
-        Route::delete('/destroy/{id}', [LoginController::class, 'destroy'])->name('destroy');
+Route::get('/login', [AuthController::class, 'showLoginForm'])->name('login');
+Route::post('/login', [AuthController::class, 'login']);
+Route::post('/logout', [AuthController::class, 'logout'])->name('logout');
+
+Route::middleware(['auth:web'])->group(function () {
+
+    Route::middleware([RoleMiddleware::class . ':admin'])->group(function () {
+        Route::get('/users', [UserController::class,'index'])->name('users');
+        Route::get('/add-employee', [UserController::class,'create'])->name('add-employee');
+        Route::get('/edit-employee/{id}', [UserController::class,'edit'])->name('edit-employee');
+        
+        Route::post('/create-user', [UserController::class,'store'])->name('create-user');
+        Route::put('/user/update/{id}', [UserController::class, 'update'])->name('user.update');
+        Route::delete('/user/delete/{id}', [UserController::class, 'destroy'])->name('user.delete');
+
+
+        Route::get('/add-product', [ProductController::class,'create'])->name('add-product');
+        Route::get('/edit-product/{id}', [ProductController::class,'edit'])->name('edit-product');
+        
+        Route::post('/create-product', [ProductController::class,'store'])->name('create-product');
+        Route::put('/products/update/{id}', [ProductController::class, 'update'])->name('update-product');
+        Route::delete('products/delete/{id}', [ProductController::class, 'destroy'])->name('product.delete');
+        Route::put('/uppdate-stock/{id}', [ProductController::class, 'updateStock'])->name('uppdate-stock');
+    
     });
 
-});
-
-});
-Route::middleware(['isLogin'])->group(function () {
-    Route::prefix('/dashboard')->group(function () {
-    Route::get('/', [PageController::class, 'dashboard'])->name('dashboard');
-
-Route::prefix('/product')->name('product.')->group(function () {
-    Route::get('/', [ProductController::class, 'index'])->name('index');
-    Route::get('/create', [ProductController::class, 'create'])->name('create');
-    Route::post('/create-post', [ProductController::class, 'store'])->name('store');
-    Route::get('/edit/{id}', [ProductController::class, 'edit'])->name('edit');
-    Route::patch('/edit-post/{id}', [ProductController::class, 'update'])->name('update');
-    Route::delete('destroy/{id}', [ProductController::class, 'destroy'])->name('destroy');
+    Route::middleware([RoleMiddleware::class . ':employee'])->group(function () {
+        Route::prefix('/sales')->name('sales.')->group(function () {
+            Route::get('/create',[SalessController::class, 'create'])->name('create');
+            Route::post('/create/post',[SalessController::class, 'store'])->name('store');
+            Route::post('/create/post/createsales',[SalessController::class, 'createsales'])->name('createsales');
+            Route::get('/create/post',[SalessController::class, 'post'])->name('post');
+            Route::get('/print/{id}',[DetailSalesController::class, 'show'])->name('print.show');
+            Route::get('/create/member/{id}', [SalessController::class, 'createmember'])->name('create.member');
+        });
     });
 
+    Route::prefix('/sales')->name('sales.')->group(function () {
+        Route::get('/list',[SalessController::class, 'index'])->name('list');
+        Route::get('/exportexcel', [DetailSalesController::class, 'exportexcel'])->name('exportexcel');
 
-Route::prefix('/sale')->name('sale.')->group(function () {
-    Route::get('/', [SaleController::class, 'index'])->name('index');
-    Route::get('/detail-print/print/{id}', [SaleController::class, 'print'])->name('print');
     });
- });
+
+    Route::middleware(['role:employee'])->group(function () {
+
+    });
+
+   
+    
+    Route::get('/', [DashboardController::class,'index'])->name('index');
+    Route::get('/index', [DashboardController::class,'index'])->name('index');
+
+
+
+    Route::get('/product-list', [ProductController::class,'index'])->name('product-list');
+
+    Route::get('/download/{id}', [DetailSalesController::class, 'downloadPDF'])->name('download');
+
+    
+    
+    
+    
+    
+    Route::get('/edit-product', function () {
+        return view('edit-product');
+    })->name('edit-product');
+    
+    Route::get('/customers', function () {                         
+        return view('customers');
+    })->name('customers');  
+    
+    
+    Route::get('/signin-3', function () {
+        return view('signin-3');
+    })->name('signin-3');
+    
+    Route::get('/pos', function () {                         
+        return view('pos');
+    })->name('pos');  
 
 });
-
-Route::middleware(['isLogin', 'cekRole:cashier'])->group(function () {
-    Route::prefix('/dashboard')->group(function () {
-    Route::prefix('/sale')->name('sale.')->group(function () {
-        Route::get('/create', [SaleController::class, 'create'])->name('create');
-        Route::get('/create/member/{saleId}', [SaleController::class, 'createMember'])->name('create_member');
-        Route::post('/create/post', [SaleController::class, 'store'])->name('store');
-        Route::post('/create/customer', [SaleController::class, 'storeCustomer'])->name('store.customer');
-        Route::post('/create/detail-shop/store', [SaleController::class, 'detailShop'])->name('store.detail');
-        Route::get('/export-excel', [SaleController::class, 'export'])->name('export');
-        Route::get('/detail-print/{id}', [SaleController::class, 'showPrint'])->name('show.print');
-        Route::delete('destroy/{id}', [SaleController::class, 'destroy'])->name('destroy');
-    });
-    });
-});
-
-Route::middleware(['isGuest'])->group(function () {
-    Route::get('/', [LoginController::class, 'login'])->name('login');
-    Route::post('/login/post', [LoginController::class, 'auth'])->name('auth');
-});
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-Route::get('/logout', [LoginController::class, 'logout'])->name('logout');
-
 

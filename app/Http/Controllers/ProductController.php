@@ -2,10 +2,9 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\DetailSale;
-use App\Models\Product;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Storage;
+use App\Models\Products;
+use App\Models\DetailSales;
 
 class ProductController extends Controller
 {
@@ -14,9 +13,8 @@ class ProductController extends Controller
      */
     public function index()
     {
-        $products = Product::orderBy('updated_at', 'DESC')->get();
-
-        return view('dashboard.admin.product.index', compact('products'));
+        $products = Products::all();
+        return view('product-list',compact('products'));
     }
 
     /**
@@ -24,7 +22,7 @@ class ProductController extends Controller
      */
     public function create()
     {
-        return view('dashboard.admin.product.create');
+        return view('add-product');
     }
 
     /**
@@ -34,111 +32,94 @@ class ProductController extends Controller
     {
         $request->validate([
             'name' => 'required',
-            'price' => 'required',
-            'stock' => 'required',
-            'img' =>  'required|mimes:jpeg,png,jpg,pdf|max:2048'
-        ], [
-            'name.required' => 'Nama Produk harus diisi!',
-            'price.required' => 'Harga Produk harus diisi!',
-            'stock.required' => 'Stok Produk harus diisi!',
-            'img.required' => 'Gambar Produk harus diisi!',
-            'img.mimes' => 'Jenis File tidak sesuai (jpeg,png,jpg,pdf)!',
-            'img.max' => 'Ukuran file tidak boleh lebih dari 2mb!',
+            'price' => 'required|numeric',
+            'stock' => 'required|numeric',
+            'photo_product' => 'required|image|mimes:jpeg,png,jpg,gif|max:8192' //max 8mb
+        ],[
+            'photo_product.max' => 'Silahkan pilih foto yang tidak lebih dari 8mb'
         ]);
-
-        if ($request->hasFile('img')) {
-            $img = $request->file('img');
-            $imgName = date('YmdHis') . "." . $img->getClientOriginalExtension();
-            Storage::putFileAs('public/product', $img, $imgName);
-        }
-
-        $createProduct = Product::create([
+    
+        $imagePath = $request->file('photo_product')->store('products', 'public');
+    
+        Products::create([
             'name' => $request->name,
-            'price' => str_ireplace(array('Rp.', '.', ' '), '', $request->price),
+            'price' => $request->price,
             'stock' => $request->stock,
-            'img' => $imgName,
+            'image' => $imagePath
         ]);
-
-        if ($createProduct) {
-            return redirect()->route('product.index')->with('success', 'Berhasil Menambah Data Produk!');
-        } else {
-            return redirect()->back()->with('error', 'Gagal Menambah Data Produk!');
-        }
+    
+        return redirect()->route('product-list')->with('success', 'Berhasil Membuat Product');
     }
+  
 
-    /**
-     * Display the specified resource.
-     */
-    public function show(Product $product)
+    public function updateStock(Request $request, $id)
     {
-        //
+        $request->validate([
+            'stock' => 'required|numeric|min:0',
+        ]);
+    
+        // Cari produk berdasarkan ID
+        $product = Products::findOrFail($id);
+    
+        // Update hanya stok produk
+        $product->update([
+            'stock' => $request->stock,
+        ]);
+        return redirect()->route('product-list')->with('success', 'Stock berhasil diperbarui!');
     }
 
     /**
      * Show the form for editing the specified resource.
      */
-    public function edit(Product $product, $id)
+    public function edit($id)
     {
-        $product = Product::find($id);
-
-        return view('dashboard.admin.product.edit', compact('product'));
+        $product = Products::findOrFail($id);
+        return view('edit-product', compact('product'));
     }
+    
 
     /**
      * Update the specified resource in storage.
      */
-    public function update(Request $request, Product $product, $id)
+    public function update(Request $request, $id)
     {
-        $product = Product::find($id);
-
-        $request->validate([
-            'name' => 'required',
-            'price' => 'required',
-            'stock' => 'required|numeric',
-        ], [
-            'name.required' => 'Nama Produk harus diisi!',
-            'price.required' => 'Harga Produk harus diisi!',
-            'stock.required' => 'Stok Produk harus diisi!',
+        $product = Products::findOrFail($id);
+        $validated = $request->validate([
+            'name' => 'required|string|max:255',
+            'price' => 'required|integer|min:1',
+            'photo_product' => 'image|mimes:jpeg,png,jpg,gif|max:8192' //max 8mb
         ]);
 
-        if ($request->hasFile('img')) {
-            $img = $request->file('img');
-            $imgName = date('YmdHis') . "." . $img->getClientOriginalExtension();
-            Storage::putFileAs('public/product', $img, $imgName);
-            Storage::delete('public/product/' . $product['img']);
-        } else {
-            $imgName = $product['img'];
+        if ($request->hasFile('photo_product')) {
+            $imagePath = $request->file('photo_product')->store('products', 'public');
+            $product->image = $imagePath;
         }
 
         $product->update([
             'name' => $request->name,
-            'price' => str_ireplace(array('Rp.', '.', ' '), '', $request->price),
-            'img' => $imgName,
-            'stock' => $request->stock,
+            'price' => $request->price,
         ]);
+    
 
-        return redirect()->route('product.index')->with('success', 'Produk berhasil diperbarui!');
+        return redirect()->route('product-list')->with('success', 'Product updated successfully.');
     }
 
 
     /**
      * Remove the specified resource from storage.
      */
-    public function destroy(Product $product, $id)
+    public function destroy($id)
     {
-        $detailSale = DetailSale::where('product_id', $id)->count();
-        if ($detailSale) {
-            return redirect()->back()->with('error', 'Produk sudah tertaut pembelian!');
-        } else {
-            $product = Product::find($id);
-            Storage::delete('public/product/' . $product['img']);
-            $deleteProduct = $product->delete();
-
-            if ($deleteProduct) {
-                return redirect()->back()->with('success', 'Berhasil Mengahapus Data Produk!');
-            } else {
-                return redirect()->back()->with('error', 'Gagal Mengahapus Data Produk!');
-            }
+        // Cek apakah produk memiliki relasi di detail_sales
+        $isProductUsed = DetailSales::where('product_id', $id)->exists();
+    
+        if ($isProductUsed) {
+            return redirect()->route('product-list')->with('error', 'Produk tidak bisa dihapus karena sudah masuk transaksi.');
         }
+    
+        // Jika tidak ada relasi, hapus produk
+        products::where('id', $id)->delete();
+        
+        return redirect()->route('product-list')->with('success', 'Berhasil menghapus produk.');
     }
 }
