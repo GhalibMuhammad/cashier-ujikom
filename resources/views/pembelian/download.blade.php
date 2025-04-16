@@ -152,7 +152,8 @@
                             </td>
                         </tr>
                         <tr class="tabletitle">
-                            
+                            <td></td>
+                            <td></td>
                             <td>
                                 <h2>Jumlah Potong Poin</h2>
                             </td>

@@ -94,7 +94,7 @@
 
                         <div class="text-end mb-3">
                         <button type="button" class="btn btn-cancel me-2" onclick="window.location='{{ url('users') }}'">Batal</button>
-                        <button type="submit" class="btn btn-submit">Tambah</button>
+                        <button type="submit" class="btn btn-submit">Edit</button>
                         </div>
                     </form>
                 </div>
